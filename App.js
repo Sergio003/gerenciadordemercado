@@ -11,7 +11,7 @@ import {
   Alert,
   StatusBar
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker'; // Biblioteca de Câmera e Galeria
+import * as ImagePicker from 'expo-image-picker';
 
 const PRODUTOS_INICIAIS = [
   {
@@ -53,7 +53,6 @@ export default function App() {
   const [produtos, setProdutos] = useState(PRODUTOS_INICIAIS);
   const [fotoEncarte, setFotoEncarte] = useState(null);
 
-  // Identifica o menor preço atual da lista
   const menorPrecoAtual = produtos.length > 0 
     ? Math.min(...produtos.map(p => p.preco)) 
     : null;
@@ -71,7 +70,6 @@ export default function App() {
     }
   };
 
-  // Função para enviar a foto capturada direto para o Backend e salvar no MySQL
   const enviarParaBancoMySQL = async (uri) => {
     const formData = new FormData();
     formData.append('foto', {
@@ -81,7 +79,6 @@ export default function App() {
     });
 
     try {
-      // Dica: Se testar no celular físico via Expo Go, substitua 'localhost' pelo IP do seu computador (ex: 'http://192.168.1.15:8000/upload-encarte/')
       const resposta = await fetch('http://localhost:8000/upload-encarte/', {
         method: 'POST',
         body: formData,
@@ -98,59 +95,31 @@ export default function App() {
     }
   };
 
-  // 1. Função para abrir a Câmera
-  const abrirCamera = async () => {
-    const permissao = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (!permissao.granted) {
-      Alert.alert("Aviso", "Precisamos de permissão para usar a câmera.");
-      return;
+  // Função direta para abrir a Galeria ao clicar no botão
+  const abrirGaleriaDireto = async () => {
+    try {
+      const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissao.granted) {
+        Alert.alert("Aviso", "Precisamos de permissão para acessar a galeria de fotos.");
+        return;
+      }
+
+      const resultado = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true, 
+        quality: 0.8,
+      });
+
+      if (!resultado.canceled) {
+        const uri = resultado.assets[0].uri;
+        setFotoEncarte(uri);
+        enviarParaBancoMySQL(uri);
+      }
+    } catch (error) {
+      console.log("Erro ao abrir a galeria: ", error);
+      Alert.alert("Erro", "Não foi possível abrir a galeria.");
     }
-
-    const resultado = await ImagePicker.launchCameraAsync({
-      allowsEditing: true, 
-      quality: 0.8,
-    });
-
-    if (!resultado.canceled) {
-      const uri = resultado.assets[0].uri;
-      setFotoEncarte(uri);
-      enviarParaBancoMySQL(uri); // Envia para o banco via API
-    }
-  };
-
-  // 2. Função para abrir a Galeria
-  const abrirGaleria = async () => {
-    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (!permissao.granted) {
-      Alert.alert("Aviso", "Precisamos de permissão para acessar a galeria de fotos.");
-      return;
-    }
-
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true, 
-      quality: 0.8,
-    });
-
-    if (!resultado.canceled) {
-      const uri = resultado.assets[0].uri;
-      setFotoEncarte(uri);
-      enviarParaBancoMySQL(uri); // Envia para o banco via API
-    }
-  };
-
-  // 3. Menu de Opções ao clicar no botão de encarte
-  const handleUploadEncarte = () => {
-    Alert.alert(
-      "Digitalizar Encarte 📷",
-      "Escolha de onde deseja enviar o encarte para salvar no banco MySQL:",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Tirar Foto", onPress: abrirCamera },
-        { text: "Abrir Galeria", onPress: abrirGaleria }
-      ]
-    );
   };
 
   return (
@@ -160,7 +129,7 @@ export default function App() {
       {/* CABEÇALHO ESTILO MERCADO LIVRE */}
       <View style={styles.header}>
         <View style={styles.linhaTopo}>
-          <Text style={styles.logoMarca}>MenorPreçoSaquarema <Text style={styles.logoMeli}></Text></Text>
+          <Text style={styles.logoMarca}>MenorPreçoSaquarema</Text>
         </View>
 
         <View style={styles.boxInput}>
@@ -173,18 +142,17 @@ export default function App() {
             onChangeText={handleBusca}
           />
         </View>
-
       </View>
 
-      {/* BANNER / BOTÃO DE ENCARTE ESTILO DESTAQUE */}
+      {/* BANNER / BOTÃO DE ENCARTE (ABRE A GALERIA DIRETAMENTE) */}
       <View style={styles.containerBanner}>
-        <TouchableOpacity style={styles.botaoEncarte} onPress={handleUploadEncarte} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.botaoEncarte} onPress={abrirGaleriaDireto} activeOpacity={0.9}>
           <Text style={styles.textoBotaoEncarte}>📸 Enviar Encarte de Ofertas</Text>
-          <Text style={styles.subTextoBotao}>Atualize os preços com IA e Banco MySQL</Text>
+          <Text style={styles.subTextoBotao}>Toque para selecionar o encarte da galeria</Text>
         </TouchableOpacity>
       </View>
 
-      {/* LISTA DE PRODUTOS ESTILO E-COMMERCE */}
+      {/* LISTA DE PRODUTOS */}
       <FlatList
         data={produtos}
         keyExtractor={(item) => item.id}
@@ -211,7 +179,7 @@ export default function App() {
               <View style={styles.blocoPreco}>
                 <Text style={styles.valorPreco}>R$ {item.preco.toFixed(2)}</Text>
                 <Text style={styles.freteGratis}>Frete grátis loja</Text>
-                <TouchableOpacity style={styles.btnComprar}>
+                <TouchableOpacity style={styles.btnComprar} onPress={abrirGaleriaDireto}>
                   <Text style={styles.txtBtnComprar}>Ver Oferta</Text>
                 </TouchableOpacity>
               </View>
@@ -231,10 +199,10 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EDEDED', // Fundo cinza claro padrão e-commerce
+    backgroundColor: '#EDEDED',
   },
   header: {
-    backgroundColor: '#FFE600', // Amarelo clássico Mercado Livre
+    backgroundColor: '#FFE600',
     paddingHorizontal: 16,
     paddingTop: 15,
     paddingBottom: 12,
@@ -247,15 +215,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#2D3277',
   },
-  logoMeli: {
-    color: '#3483FA', // Azul característico
-    fontStyle: 'italic',
-  },
   boxInput: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 4, // Bordas mais retas estilo marketplace
+    borderRadius: 4,
     paddingHorizontal: 12,
     height: 42,
     elevation: 2,
@@ -274,19 +238,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
-  localizacaoTxt: {
-    fontSize: 11,
-    color: '#333',
-    marginTop: 8,
-    fontWeight: '500',
-  },
   containerBanner: {
     padding: 12,
     backgroundColor: '#FFE600',
     paddingBottom: 16,
   },
   botaoEncarte: {
-    backgroundColor: '#3483FA', // Azul padrão de ações do Mercado Livre
+    backgroundColor: '#3483FA',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 6,
@@ -317,7 +275,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E2E2',
   },
   cardMenorPreco: {
-    borderColor: '#00A650', // Verde de destaque para ótimas ofertas
+    borderColor: '#00A650',
     borderWidth: 1.5,
   },
   imagemProduto: {
